@@ -46,9 +46,18 @@ const W=480,H=560,G=450,cv=document.getElementById('c'),ctx=cv.getContext('2d');
 const $=id=>document.getElementById(id);
 let lastHigh=false,lastTea=false,passed=0,state='home',score=0,speed,lumi,objs,hearts,timer,anim,last=0,over=false;
 const START=280,MAXS=560,ACC=2.8,LEG=.9;
+// Bubble tea: try an external "bubbletea" image first, fall back to the embedded pixel art
+const TEA_FILES=['bubbletea.png','bubbletea.webp','bubbletea.jpg','bubbletea.jpeg','bubbletea.svg'];
+const loadImg=src=>new Promise((res,rej)=>{const im=new Image();im.onload=()=>res(im);im.onerror=rej;im.src=src});
+async function loadTea(){
+  for(const f of TEA_FILES){try{const im=await loadImg(f);if(im.width&&im.height)return im}catch(e){}}
+  return loadImg(SRC.tea);
+}
 function init(){
-  
-  names.forEach(n=>{const im=new Image();im.onload=()=>{if(++loaded===names.length){requestAnimationFrame(loop)}};im.src=SRC[n];I[n]=im});
+  Promise.all(names.map(n=>n==='tea'?loadTea():loadImg(SRC[n]))).then(ims=>{
+    names.forEach((n,i)=>I[n]=ims[i]);
+    requestAnimationFrame(loop);
+  });
 }
 ctx.setTransform(2,0,0,2,0,0);function reset(){score=0;passed=0;speed=START;lumi={x:70,y:0,vy:0,w:60,h:110};objs=[];hearts=[];timer=300;resetSpawn();anim=0;over=false;$('score').textContent=0}
 function show(s){state=s;$('home').style.display=s==='home'?'flex':'none';$('over').style.display=s==='over'?'flex':'none';$('score').style.visibility=s==='home'?'hidden':'visible'}
