@@ -50,8 +50,11 @@ const SRC={"shine": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAARgAAABUCAYAA
 const I={};let loaded=0;const names=Object.keys(SRC);
 const W=480,H=560,G=450,cv=document.getElementById('c'),ctx=cv.getContext('2d');
 const $=id=>document.getElementById(id);
-const TEST_EARLY_ONION=false; // set true to make the onion spawn at the start for testing.
-let onionAts=[0,0],onionN=0,pops=[],lastHigh=false,lastTea=false,passed=0,state='home',score=0,speed,lumi,objs,hearts,timer,anim,last=0,over=false;
+const TEST_ONION_ALWAYS=false; // set true to make the Golden Onion spawn on every collectible (testing only).
+// Golden Onion: rare bonus collectible. Rolled whenever a new collectible (milk tea) is generated.
+const ONION_CHANCE=TEST_ONION_ALWAYS?1:.07,   // 7% chance per collectible spawn
+      ONION_MIN_DIST=TEST_ONION_ALWAYS?0:4500; // minimum distance (px scrolled) between two Golden Onions
+let sinceOnion=0,pops=[],lastHigh=false,lastTea=false,passed=0,state='home',score=0,speed,lumi,objs,hearts,timer,anim,last=0,over=false;
 const START=280,MAXS=560,ACC=2.8,LEG=.9;
 // Bubble tea: try an external "bubbletea" image first, fall back to the embedded pixel art
 const TEA_FILES=['bubbletea.png','bubbletea.webp','bubbletea.jpg','bubbletea.jpeg','bubbletea.svg'];
@@ -67,7 +70,7 @@ function init(){
     requestAnimationFrame(loop);
   });
 }
-ctx.setTransform(2,0,0,2,0,0);function reset(){score=0;passed=0;speed=START;lumi={x:70,y:0,vy:0,w:60,h:110};objs=[];hearts=[];pops=[];onionN=0;onionAts=TEST_EARLY_ONION?[0,Math.floor(rnd(400,551))]:[Math.floor(rnd(150,201)),Math.floor(rnd(400,551))];timer=300;resetSpawn();anim=0;over=false;$('score').textContent=0}
+ctx.setTransform(2,0,0,2,0,0);function reset(){score=0;passed=0;speed=START;lumi={x:70,y:0,vy:0,w:60,h:110};objs=[];hearts=[];pops=[];sinceOnion=ONION_MIN_DIST;timer=300;resetSpawn();anim=0;over=false;$('score').textContent=0}
 function show(s){state=s;$('home').style.display=s==='home'?'flex':'none';$('over').style.display=s==='over'?'flex':'none';$('score').style.visibility=s==='home'?'hidden':'visible'}
 function startGame(){reset();show('play')}
 function jump(){if(state==='play'&&lumi.y===0&&!over)lumi.vy=-820}
@@ -106,15 +109,20 @@ function makeSeq(X,force){
     gap=Math.max(lastOb.x-X+min+rnd(b[0],b[1])*sp+(big?rnd(.5,.9)*sp:0),end+30)}
   return{objs:L,gap};
 }
-function spawn2(){const q=makeSeq(W+20,nSp===0?'teaOnly':nSp===1?'single':null);for(const o of q.objs)objs.push(o);timer=q.gap;nSp++}
+function spawn2(){const q=makeSeq(W+20,nSp===0?'teaOnly':nSp===1?'single':null);for(const o of q.objs)objs.push(o);timer=q.gap;nSp++;if(q.objs.some(o=>o.k==='tea'))maybeOnion()}
+function maybeOnion(){
+  // roll only when a collectible was just generated, respect the minimum spacing, and never show two at once
+  if(sinceOnion<ONION_MIN_DIST||Math.random()>=ONION_CHANCE||objs.some(q=>q.k==='onion'))return;
+  spawnOnion();
+}
 function spawnOnion(){
-  // place it clear of every object currently on/near screen (same clearances the sequence spawner uses)
-  // always raised (same reachable height range the bubble teas use), so Lumi has to jump to hit it
-  const sp=speed,o=sprite('onion',TEAH),hi=true,lift=hiLift();let x=W+20;
+  // 50/50: floor level (collected while running) or jumping zone (same reachable heights as the milk teas)
+  // it is placed clear of every object already on/near screen (same clearances the sequence spawner uses)
+  const sp=speed,o=sprite('onion',TEAH),hi=Math.random()<.5,lift=hi?hiLift():0;let x=W+20;
   for(const q of objs){const m=q.k==='ob'?(q.lv===2?sp*.5+90:sp*.85+60):(hi?60:30);x=Math.max(x,q.x+q.w+m)}
   objs.push({k:'onion',x,w:o.w,h:TEAH,lift,img:'onion',got:false});
-  onionN++;
-  // a raised onion needs a full jump, so leave landing room before the next obstacle/tea
+  sinceOnion=0;
+  // leave landing / reaction room before the next sequence so nothing overlaps or becomes uncollectable
   timer=Math.max(timer,x+o.w+(hi?sp*.85+60:sp*.2+rnd(40,110))-(W+20));
 }
 function spawn(){
@@ -132,7 +140,7 @@ function update(dt){
   speed=Math.min(MAXS,speed+ACC*dt);
   lumi.vy+=2400*dt;lumi.y=Math.min(0,lumi.y+lumi.vy*dt);if(lumi.y===0)lumi.vy=0;
   anim+=dt;
-  timer-=speed*dt;if(onionN<2&&score>=onionAts[onionN]&&!objs.some(q=>q.k==='onion'))spawnOnion();if(timer<=0)spawn2();
+  timer-=speed*dt;sinceOnion+=speed*dt;if(timer<=0)spawn2();
   const lb={x:lumi.x+10,y:G-lumi.h+lumi.y+12,w:lumi.w-20,h:lumi.h-16};
   for(const o of objs)o.x-=speed*dt;
   for(const o of objs)if(o.k==='ob'&&hit(lb,{x:o.x+9,y:G-o.h-o.lift+8,w:o.w-18,h:o.h-12}))over=true;
