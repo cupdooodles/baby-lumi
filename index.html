@@ -171,7 +171,9 @@ function update(dt){
     if(o.k==='tea'){
       if(!o.got&&!over&&hit(lb,ob)){o.got=true;score+=PTS[o.img];$('score').textContent=score;collect(o.img)}
     }else if(o.k==='onion'){
-      if(!o.got&&!over&&hit(lb,ob)){o.got=true;score+=100;$('score').textContent=score;pops.push({x:o.x+o.w/2,y:G-o.h-o.lift-6,t:0})}
+      // generous pickup box: the full onion sprite grown by 10px on every side, so any visible touch counts
+      const ob2={x:o.x-10,y:G-o.h-o.lift-10,w:o.w+20,h:o.h+20};
+      if(!o.got&&hit(lb,ob2)){o.got=true;score+=100;$('score').textContent=score;$('fs').textContent='SCORE '+score;pops.push({x:o.x+o.w/2,y:G-o.h-o.lift-6,t:0})}
     }else if(!over&&hit(lb,ob)){over=true}
   }
   objs=objs.filter(o=>o.x>-100&&!o.got);
